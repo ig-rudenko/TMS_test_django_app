@@ -1,0 +1,10 @@
+{% extends "create.html" %}
+
+{% block extra %}
+<form action="{% url "delete-post" post_id %}" method="post">
+    {% csrf_token %}
+    <input type="submit" value="Delete Post"
+            class="btn btn-danger btn-sm"
+            onclick="return confirm('Удалить?')">
+</form>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% load humanize %}
+
+<div class="mb-4 bg-light rounded-3">
+  <div class="container-fluid py-3 text-center">
+    <h1 class="display-5 fw-bold">Добро пожаловать, {{ request.user.username }}</h1>
+    <h4 class="text-center">Здесь вы можете создавать заметки и просматривать их</h4>
+      <h4>Было собрано {{ cost | intword }} кг корма коту {{ date | naturaltime }}</h4>
+    <p>{{ extra }}</p>
+  </div>
+</div>
