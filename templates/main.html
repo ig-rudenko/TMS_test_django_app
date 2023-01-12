@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load humanize %}
 
 {% block title %}
 Django APP
@@ -10,24 +11,38 @@ Django APP
     {% if request.user.username %}
         {% include "welcome.html" with extra="Дополнительная информация" %}
     {% endif %}
-    <img src="{% static 'img/cat_nice.png' %}">
+
+    <div class="row row-cols-1 row-cols-md-4">
     {# ЦИКЛ #}
-    {% for post in posts %}
-        <a href="{% url "show-post" post.id %}">  {# Ссылка "открыть пост" по его ID #}
-            <h2>{{ post.title }}</h2>  {# Заголовок #}
-        </a>
-        {# Дата и время создания поста #}
-        <span class="badge badge-primary">{{ post.created }}</span>
+        {% for post in posts %}
+            <div class="col py-3">
+                <div class="card" style="width: 18rem;">
+                  <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="{% url "show-post" post.id %}">
+                            {{ post.title }}
+                        </a>
+                    </h5>
+                      {# Дата и время создания поста #}
+                    <h6 class="card-subtitle mb-2 text-muted">{{ post.created | naturaltime }}</h6>
+                      {# Пользователь #}
+                    <h6 class="card-subtitle mb-2 text-muted">{{ post.user.username }}</h6>
+                    <p class="card-text">{{ post.content | slice:":20" }}...</p>
 
-        {# Ссылка редактировать #}
-        <a href="{% url "update-post" post.id %}" class="badge badge-secondary">Изменить</a>
-        <hr>
+                    {% if post.user.username == request.user.username %}
+                        {# Ссылка редактировать #}
+                        <a href="{% url "update-post" post.id %}" class="card-link">Изменить</a>
+                    {% endif %}
+                  </div>
+                </div>
+            </div>
 
-    {% empty %}
+        {% empty %}
 
-        <h1>Нет заметок</h1>
+            <h1>Нет заметок</h1>
 
-    {% endfor %}
-    {# КОНЕЦ ЦИКЛА #}
+        {% endfor %}
+        {# КОНЕЦ ЦИКЛА #}
+    </div>
 
 {% endblock %}

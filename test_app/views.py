@@ -1,96 +1,32 @@
 from datetime import datetime, timedelta
-
+from django.http import HttpResponseForbidden
 from django.shortcuts import render, redirect, get_object_or_404
-from django.http import HttpResponseNotAllowed
 from .models import Posts
 from django.views import View
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 
 
-def show_posts(request):
-    """
-    Функция представления всех постов
-    :param request:
-    :return:
-    """
+def has_permission_to_post(func):
+    def deco(request, post_id: int, *args, **kwargs):
 
-    all_posts = Posts.objects.all()
-    return render(
-        request,
-        "main.html",
-        {"posts": all_posts}
-    )
-
-
-@login_required
-def create_post(request):
-    data = {}
-
-    if request.method == "POST":
-        title = request.POST.get("title", "")  # Если нет колюча title, то вернет ""
-        content = request.POST.get("content", "")
-        if title and content:
-            post = Posts(title=title, content=content)
-            post.save()
-            print(post.id, post.title)
-            return redirect("home")
-
-        data["title"] = title
-        data["content"] = content
-
-    return render(request, "create.html", data)
-
-
-def get_post(request, post_id: int):
-    post: Posts = get_object_or_404(Posts, id=post_id)
-    return render(request, "post.html", {"post": post})
-
-
-@login_required
-def update_post(request, post_id: int):
-    post: Posts = get_object_or_404(Posts, id=post_id)
-
-    if request.method == "POST":
-
-        title = request.POST.get("title", "")  # Если нет колюча title, то вернет ""
-        content = request.POST.get("content", "")
-
-        if title and content:
-
-            post.title = title
-            post.content = content
-
-            # Обновляем конкретные поля в базе
-            post.save(update_fields=["title", "content"])
-
-            return redirect("show-post", post.id)
-
-    return render(
-        request,
-        "edit.html",
-        {
-            "title": post.title,
-            "content": post.content,
-            "post_id": post_id
-        }
-    )
-
-
-@login_required
-def delete_post(request, post_id: int):
-    if request.method == "POST":
         post: Posts = get_object_or_404(Posts, id=post_id)
-        post.delete()
-        return redirect("home")
 
-    return HttpResponseNotAllowed(permitted_methods=["POST"])
+        if request.user.id == post.user.id:
+            return func(request, post, *args, **kwargs)
+        return HttpResponseForbidden()
+
+    return deco
 
 
 class ShowAllPosts(View):
 
     def get(self, request):
+        # Все заметки, у которых пользователь содержит в username "test"
         all_posts = Posts.objects.all()
+
+        print(all_posts.query)
+
         return render(
             request,
             "main.html",
@@ -102,6 +38,9 @@ class ShowPost(View):
 
     def get(self, request, post_id):
         post: Posts = get_object_or_404(Posts, id=post_id)
+
+        print(type(post.user), post.user.__dict__)
+
         return render(request, "post.html", {"post": post, "number": 55})
 
 
@@ -116,8 +55,9 @@ class CreatePost(View):
     def post(self, request):
         title = request.POST.get("title", "")  # Если нет колюча title, то вернет ""
         content = request.POST.get("content", "")
+        print(request.user)
         if title and content:
-            self.create(title=title, content=content)
+            self.create(title=title, content=content, user=request.user)
             return redirect("home")
 
         return render(
@@ -130,39 +70,44 @@ class CreatePost(View):
         )
 
     def create(self, **kwargs):
+        print(kwargs)
         post = self.model(**kwargs)
         post.save()
 
 
 @method_decorator(login_required, name="dispatch")
+@method_decorator(has_permission_to_post, name="dispatch")
 class UpdatePost(View):
 
-    def get(self, request, post_id):
-        post: Posts = get_object_or_404(Posts, id=post_id)
+    def get(self, request, post: Posts):
         return render(
             request,
             "edit.html",
             {
                 "title": post.title,
                 "content": post.content,
-                "post_id": post_id
+                "post_id": post.id
             }
         )
 
-    def post(self, request, post_id):
-        post: Posts = get_object_or_404(Posts, id=post_id)
+    def post(self, request, post: Posts):
+
+        print("def post(self, request, post: Posts):")
+        print("   ", type(post), post)
+        post_id = post.id
 
         title = request.POST.get("title", "")  # Если нет колюча title, то вернет ""
         content = request.POST.get("content", "")
 
         if title and content:
-            post.title = title
-            post.content = content
-
+            print("# Обновляем конкретные поля в базе")
             # Обновляем конкретные поля в базе
-            post.save(update_fields=["title", "content"])
 
-            return redirect("show-post", post.id)
+            if Posts.objects.filter(id=post_id).exists():
+                print("Заметка найдена")
+                print(Posts.objects.filter(id=post_id).update(title=title, content=content))
+
+            return redirect("show-post", post_id)
 
         return render(
             request,
@@ -177,8 +122,6 @@ class UpdatePost(View):
 
 @method_decorator(login_required, name="dispatch")
 class DeletePost(View):
-
-    def post(self, request, post_id):
-        post: Posts = get_object_or_404(Posts, id=post_id)
-        post.delete()
+    def post(self, request, post_id: int):
+        Posts.objects.filter(id=post_id).delete()
         return redirect("home")
